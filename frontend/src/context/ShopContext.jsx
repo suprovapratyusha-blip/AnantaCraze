@@ -8,7 +8,7 @@ export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
 
-    const currency = '$';
+    const currency = '₹';
     const delivery_fee = 10;
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
     const [search, setSearch] = useState('');
@@ -76,6 +76,16 @@ const ShopContextProvider = (props) => {
         let cartData = structuredClone(cartItems);
         cartData[itemId][size] = quantity;
         setCartItems(cartData);
+        if(token){
+            try {
+                await axios.post(
+                    backendUrl + '/api/cart/update',
+                    {itemId,size,quantity},{headers:{token}})
+            } catch (error) {
+                console.log(error);
+                toast.error(error.message)
+            }
+        }
     }
 
     const getCartAmount = () => {
@@ -114,7 +124,7 @@ const ShopContextProvider = (props) => {
         }
     }
 
-    const getUserCart = async (token) => {
+    const getUserCart = async (token)=> {
     try {
 
         const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } })
@@ -143,7 +153,7 @@ useEffect(() => {
 const value = {
     products, currency, delivery_fee,
     search, setSearch, setShowSearch, showSearch,
-    cartItems, addToCart,
+    cartItems,setCartItems, addToCart,
     getCartCount, updateQuantity,
     getCartAmount, navigate, backendUrl,
     setToken, token
