@@ -5,6 +5,6 @@ const connectDB = async() =>{
         console.log('Mongodb connected');
     })
 
-    await mongoose.connect(`${process.env.MONGODB_URI}/Ananta-Gopal`)
+    await mongoose.connect(`${process.env.MONGODB_URI}/Anantacraze`)
 }
 export default connectDB;
