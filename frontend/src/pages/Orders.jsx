@@ -23,6 +23,9 @@ const Orders = () => {
                     item['status'] = order.status
                     item['payment'] = order.payment
                     item['paymentMethod'] = order.paymentMethod
+                    item['paymentStatus'] = order.paymentStatus
+                    item['advancePaymentAmount'] = order.advancePaymentAmount
+                    item['cashOnDeliveryAmount'] = order.cashOnDeliveryAmount
                     item['date'] = order.date
                     allOrdersItems.push(item)
                 })
@@ -61,7 +64,14 @@ const Orders = () => {
                                     <p>Size: {item.size}</p>
                                 </div>
                                 <p className='mt-1'>Date: <span className='text-gray-400'>{new Date(item.date).toDateString()}</span></p>
-                                1<p className='mt-1'>payment: <span className='text-gray-400'>{item.paymentMethod}</span></p>
+                                <p className='mt-1'>Payment Method: <span className='text-gray-400'>{item.paymentMethod}</span></p>
+                                <p className='mt-1'>Payment Status: <span className='text-gray-400'>{item.paymentStatus || (item.payment ? 'Done' : 'Pending')}</span></p>
+                                {item.paymentMethod === 'COD' && (
+                                    <p className='mt-1'>
+                                        Paid Now: <span className='text-gray-400'>{currency} {item.advancePaymentAmount ?? 0}</span>
+                                        {' '}| Due on Delivery: <span className='text-gray-400'>{currency} {item.cashOnDeliveryAmount ?? 0}</span>
+                                    </p>
+                                )}
                                 
                             </div>
                         </div>

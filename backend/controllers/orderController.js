@@ -5,34 +5,69 @@ import Stripe from 'stripe'
 //Global variables
 const currency = 'inr'
 const deliveryCharge = 10
+const codConfirmationCharge = 10
 
 // gateway initialize 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 
-//Placing Orders using COD Method
+//Placing COD orders with a small online confirmation payment
 const placeOrder = async (req, res) => {
     try {
         const { userId, items, amount, address } = req.body;
+        const { origin } = req.headers
+
         if (!items || !amount || !address) {
             return res.json({ success: false, message: "Missing order details" });
         }
+
+        const confirmationAmount = Math.min(codConfirmationCharge, amount)
+        const cashOnDeliveryAmount = Math.max(amount - confirmationAmount, 0)
 
         const order = {
             userId,
             items,
             address,
             amount,
+            advancePaymentAmount: confirmationAmount,
+            cashOnDeliveryAmount,
             paymentMethod: 'COD',
             payment: false,
+            paymentStatus: 'Confirmation Payment Pending',
             date: Date.now()
         }
         const newOrder = new orderModel(order)
         await newOrder.save()
 
-        await userModel.findByIdAndUpdate(userId, { cartData: {} })
-        res.json({ success: true, message: "Order Placed Successfully" })
+        const session = await stripe.checkout.sessions.create({
+            success_url: `${origin}/verify?success=true&orderId=${newOrder._id}`,
+            cancel_url: `${origin}/verify?success=false&orderId=${newOrder._id}`,
+            line_items: [
+                {
+                    price_data: {
+                        currency,
+                        product_data: {
+                            name: 'COD Confirmation Amount'
+                        },
+                        unit_amount: confirmationAmount * 100
+                    },
+                    quantity: 1
+                }
+            ],
+            mode: 'payment',
+            metadata: {
+                orderId: newOrder._id.toString(),
+                paymentMethod: 'COD'
+            }
+        })
+
+        res.json({
+            success: true,
+            session_url: session.url,
+            confirmationAmount,
+            cashOnDeliveryAmount
+        })
     }
     catch (error) {
         console.log(error)
@@ -52,8 +87,11 @@ const placeOrderStripe = async (req, res) => {
             items,
             address,
             amount,
+            advancePaymentAmount: amount,
+            cashOnDeliveryAmount: 0,
             paymentMethod: 'Stripe',
             payment: false,
+            paymentStatus: 'Online Payment Pending',
             date: Date.now()
         }
 
@@ -103,8 +141,21 @@ const verifyStripe = async (req,res) => {
     const { orderId, success, userId } = req.body
 
     try {
+        const order = await orderModel.findById(orderId)
+
+        if (!order) {
+            return res.json({success: false, message: 'Order not found'})
+        }
+
         if (success === "true") {
-            await orderModel.findByIdAndUpdate(orderId, {payment:true});
+            const paymentStatus = order.paymentMethod === 'COD'
+                ? 'Confirmation Paid, Cash on Delivery Pending'
+                : 'Paid in Full'
+
+            await orderModel.findByIdAndUpdate(orderId, {
+                payment: true,
+                paymentStatus
+            });
             await userModel.findByIdAndUpdate(userId, {cartData: {}})
             res.json({success: true});
         }else{

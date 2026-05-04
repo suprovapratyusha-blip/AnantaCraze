@@ -46,6 +46,13 @@ const Product = () => {
           </div>
           <div className='w-full sm:w-[80%]'>
             <img className='w-full h-auto'src={image} alt="" />
+            {productData.video && (
+              <div className='mt-4'>
+                <video className='w-full rounded border' controls src={productData.video}>
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            )}
           </div>
         
 

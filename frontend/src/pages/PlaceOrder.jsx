@@ -11,6 +11,7 @@ const PlaceOrder = () => {
 
   const [method, setMethod] = useState('cod');
   const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+  const codBalance = getCartAmount();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -63,8 +64,8 @@ const PlaceOrder = () => {
         case 'cod':
           const response = await axios.post(backendUrl + '/api/order/place', orderData, { headers: { token } })
           if (response.data.success) {
-            setCartItems({})
-            navigate('/orders')
+            const { session_url } = response.data
+            window.location.replace(session_url)
           } else {
             toast.error(response.data.message)
           }
@@ -138,11 +139,18 @@ const PlaceOrder = () => {
             </div>
             <div onClick={() => setMethod('cod')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'cod' ? 'bg-green-400' : ''}`}></p>
-              <p className='text-gray-500 text-sm font-medium mx-4'>CASH ON DELIVERY</p>
+              <p className='text-gray-500 text-sm font-medium mx-4'>COD WITH {delivery_fee} ONLINE CONFIRMATION</p>
             </div>
           </div>
+          {method === 'cod' && (
+            <p className='mt-4 text-sm text-gray-600 max-w-md'>
+              Pay {delivery_fee} online now as confirmation money. The remaining {codBalance}.00 will be collected on delivery.
+            </p>
+          )}
           <div className='w-full text-end mt-8'>
-            <button type='submit' className='bg-black text-white px-16 py-3 text-sm'>PLACE ORDER</button>
+            <button type='submit' className='bg-black text-white px-16 py-3 text-sm'>
+              {method === 'cod' ? 'PAY CONFIRMATION AMOUNT' : 'PLACE ORDER'}
+            </button>
           </div>
         </div>
       </div>

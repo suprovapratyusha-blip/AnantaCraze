@@ -2,6 +2,7 @@ import axios from 'axios'
 import React,{useEffect, useState} from 'react'
 import { backendUrl, currency } from '../App'
 import { toast } from 'react-toastify'
+import { Link } from 'react-router-dom'
 
 const List = ({token}) => {
   const [list, setList] = useState([])
@@ -64,7 +65,10 @@ useEffect(()=>{
             <p>{item.name}</p>
             <p>{item.category}</p>
             <p>{currency}{item.price}</p>
-            <p onClick={()=>removeProduct(item._id)} className='text-right md:text-center cursor-pointer text-lg'>X</p>
+            <div className='flex items-center justify-end gap-3 md:justify-center'>
+              <Link to={`/edit/${item._id}`} className='text-xs font-medium text-blue-600'>Edit</Link>
+              <p onClick={()=>removeProduct(item._id)} className='cursor-pointer text-lg'>X</p>
+            </div>
           </div>
         ))
       }
