@@ -1,6 +1,18 @@
 import { v2 as cloudinary } from "cloudinary"
 import productModel from "../models/productModel.js"
 
+const parseJsonField = (value, fallback) => {
+    if (value === undefined || value === null || value === '') {
+        return fallback
+    }
+
+    try {
+        return JSON.parse(value)
+    } catch {
+        return fallback
+    }
+}
+
 const uploadFiles = async (files = {}) => {
     const uploadedImages = [files.image1?.[0], files.image2?.[0], files.image3?.[0], files.image4?.[0]]
         .filter(Boolean)
@@ -26,11 +38,21 @@ const buildProductPayload = (body, media) => ({
     description: body.description,
     category: body.category,
     price: Number(body.price),
+    compareAtPrice: Number(body.compareAtPrice || 0),
+    costPerItem: Number(body.costPerItem || 0),
     subCategory: body.subCategory,
     bestseller: body.bestseller === "true" ? true : false,
-    sizes: JSON.parse(body.sizes),
+    sizes: parseJsonField(body.sizes, []),
     image: media.images,
     video: media.video,
+    sku: body.sku || '',
+    stockQuantity: Number(body.stockQuantity || 0),
+    allowBackorder: body.allowBackorder === "true" ? true : false,
+    minimumOrderQuantity: Number(body.minimumOrderQuantity || 1),
+    processingTimeDays: Number(body.processingTimeDays || 0),
+    customizationAvailable: body.customizationAvailable === "true" ? true : false,
+    customizationNotes: body.customizationNotes || '',
+    productVariants: parseJsonField(body.productVariants, []),
 })
 
 //function for add product
