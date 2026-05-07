@@ -1,5 +1,6 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import productModel from "../models/productModel.js";
 import Stripe from 'stripe'
 
 //Global variables
@@ -10,6 +11,40 @@ const codConfirmationCharge = 10
 // gateway initialize 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+const enrichOrderItemsWithImages = async (orders) => {
+    const productIds = [...new Set(
+        orders.flatMap((order) =>
+            (order.items || [])
+                .map((item) => item?._id)
+                .filter(Boolean)
+                .map((id) => id.toString())
+        )
+    )]
+
+    if (productIds.length === 0) {
+        return orders
+    }
+
+    const products = await productModel.find({ _id: { $in: productIds } }).select('_id image')
+    const productMap = new Map(products.map((product) => [product._id.toString(), product.image || []]))
+
+    return orders.map((order) => ({
+        ...order.toObject(),
+        items: (order.items || []).map((item) => {
+            const hasImage = Array.isArray(item?.image) ? item.image.length > 0 : Boolean(item?.image)
+
+            if (hasImage || !item?._id) {
+                return item
+            }
+
+            return {
+                ...item,
+                image: productMap.get(item._id.toString()) || []
+            }
+        })
+    }))
+}
 
 
 //Placing COD orders with a small online confirmation payment
@@ -178,7 +213,8 @@ const placeOrderRazorpay = async (req, res) => {
 const allOrders = async (req, res) => {
     try {
         const orders = await orderModel.find({})
-        res.json({ success: true, orders })
+        const enrichedOrders = await enrichOrderItemsWithImages(orders)
+        res.json({ success: true, orders: enrichedOrders })
 
     } catch (error) {
         console.log(error)
@@ -193,7 +229,8 @@ const userOrders = async (req, res) => {
     try {
         const { userId } = req.body
         const orders = await orderModel.find({ userId })
-        res.json({ success: true, orders })
+        const enrichedOrders = await enrichOrderItemsWithImages(orders)
+        res.json({ success: true, orders: enrichedOrders })
 
     } catch (error) {
         console.log(error)
