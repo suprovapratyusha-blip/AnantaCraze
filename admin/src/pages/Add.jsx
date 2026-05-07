@@ -7,6 +7,10 @@ import { toast } from 'react-toastify'
 import { categoryOptions, defaultCategory, defaultSubCategory } from '../data/productOptions'
 
 const variantNameOptions = ['Color', 'Size', 'Material', 'Style']
+const maxImageSlots = 10
+const maxVideoSlots = 2
+
+const createEmptySlots = (count) => Array.from({ length: count }, () => false)
 
 const emptyForm = {
   name: '',
@@ -66,23 +70,29 @@ const Add = ({ token }) => {
   const { productId } = useParams()
   const isEditMode = Boolean(productId)
 
-  const [image1, setImage1] = useState(false)
-  const [image2, setImage2] = useState(false)
-  const [image3, setImage3] = useState(false)
-  const [image4, setImage4] = useState(false)
-  const [video, setVideo] = useState(false)
+  const [imageFiles, setImageFiles] = useState(() => createEmptySlots(maxImageSlots))
+  const [videoFiles, setVideoFiles] = useState(() => createEmptySlots(maxVideoSlots))
   const [existingImages, setExistingImages] = useState([])
-  const [existingVideo, setExistingVideo] = useState('')
+  const [existingVideos, setExistingVideos] = useState([])
   const [formData, setFormData] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [variantDrafts, setVariantDrafts] = useState([])
 
-  const imageSlots = useMemo(() => ([
-    { key: 'image1', file: image1, setter: setImage1, existing: existingImages[0] || '' },
-    { key: 'image2', file: image2, setter: setImage2, existing: existingImages[1] || '' },
-    { key: 'image3', file: image3, setter: setImage3, existing: existingImages[2] || '' },
-    { key: 'image4', file: image4, setter: setImage4, existing: existingImages[3] || '' }
-  ]), [existingImages, image1, image2, image3, image4])
+  const imageSlots = useMemo(() => (
+    Array.from({ length: maxImageSlots }, (_, index) => ({
+      key: `image${index + 1}`,
+      file: imageFiles[index],
+      existing: existingImages[index] || ''
+    }))
+  ), [existingImages, imageFiles])
+
+  const videoSlots = useMemo(() => (
+    Array.from({ length: maxVideoSlots }, (_, index) => ({
+      key: `video${index + 1}`,
+      file: videoFiles[index],
+      existing: existingVideos[index] || ''
+    }))
+  ), [existingVideos, videoFiles])
 
   const subCategoryOptions = categoryOptions[formData.category] || []
 
@@ -136,6 +146,14 @@ const Add = ({ token }) => {
     const discount = Math.min(Math.max(parsePositiveNumber(value), 0), 100)
     const discountedPrice = (mrp * (100 - discount)) / 100
     updateForm('price', discountedPrice ? discountedPrice.toFixed(2).replace(/\.00$/, '') : '')
+  }
+
+  const updateImageFile = (index, file) => {
+    setImageFiles((prev) => prev.map((item, currentIndex) => currentIndex === index ? file : item))
+  }
+
+  const updateVideoFile = (index, file) => {
+    setVideoFiles((prev) => prev.map((item, currentIndex) => currentIndex === index ? file : item))
   }
 
   const toggleSize = (size) => {
@@ -226,15 +244,16 @@ const Add = ({ token }) => {
     setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index))
   }
 
+  const removeExistingVideo = (index) => {
+    setExistingVideos((prev) => prev.filter((_, currentIndex) => currentIndex !== index))
+  }
+
   const resetForm = () => {
     setFormData(emptyForm)
-    setImage1(false)
-    setImage2(false)
-    setImage3(false)
-    setImage4(false)
-    setVideo(false)
+    setImageFiles(createEmptySlots(maxImageSlots))
+    setVideoFiles(createEmptySlots(maxVideoSlots))
     setExistingImages([])
-    setExistingVideo('')
+    setExistingVideos([])
     setVariantDrafts([])
   }
 
@@ -253,6 +272,11 @@ const Add = ({ token }) => {
 
       const product = response.data.product
       const normalizedVariants = normalizeVariantGroups(product.productVariants || [])
+      const normalizedVideos = Array.isArray(product.videos) && product.videos.length > 0
+        ? product.videos
+        : product.video
+          ? [product.video]
+          : []
 
       setFormData({
         name: product.name,
@@ -275,7 +299,7 @@ const Add = ({ token }) => {
       })
       setVariantDrafts(normalizedVariants.map(() => ''))
       setExistingImages(product.image || [])
-      setExistingVideo(product.video || '')
+      setExistingVideos(normalizedVideos)
     } catch (error) {
       console.log(error)
       toast.error(error.message)
@@ -324,16 +348,22 @@ const Add = ({ token }) => {
         JSON.stringify(formData.productVariants.filter((variant) => variant.name && variant.values.length > 0))
       )
 
-      image1 && payload.append('image1', image1)
-      image2 && payload.append('image2', image2)
-      image3 && payload.append('image3', image3)
-      image4 && payload.append('image4', image4)
-      video && payload.append('video', video)
+      imageFiles.forEach((file, index) => {
+        if (file) {
+          payload.append(`image${index + 1}`, file)
+        }
+      })
+
+      videoFiles.forEach((file, index) => {
+        if (file) {
+          payload.append(`video${index + 1}`, file)
+        }
+      })
 
       if (isEditMode) {
         payload.append('id', productId)
         payload.append('existingImages', JSON.stringify(existingImages))
-        payload.append('existingVideo', existingVideo)
+        payload.append('existingVideos', JSON.stringify(existingVideos))
       }
 
       const endpoint = isEditMode ? '/api/product/update' : '/api/product/add'
@@ -358,7 +388,7 @@ const Add = ({ token }) => {
     <form onSubmit={onSubmitHandler} className='flex w-full flex-col items-start gap-6'>
       <section className='w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm'>
         <h2 className='mb-2 text-lg font-semibold text-gray-900'>Media</h2>
-        <p className='mb-4 text-sm text-gray-500'>Add up to four product photos and one optional video.</p>
+        <p className='mb-4 text-sm text-gray-500'>Add up to ten product photos and two optional videos.</p>
         <div>
           <p className='mb-2 text-sm font-medium text-gray-700'>Upload Images</p>
           <div className='flex flex-wrap gap-3'>
@@ -371,7 +401,7 @@ const Add = ({ token }) => {
                 <div key={slot.key} className='flex flex-col gap-1'>
                   <label htmlFor={slot.key}>
                     <img className='h-24 w-24 cursor-pointer rounded-lg border object-cover' src={preview} alt='' />
-                    <input onChange={(e) => slot.setter(e.target.files[0])} type='file' id={slot.key} accept='image/*' hidden />
+                    <input onChange={(e) => updateImageFile(index, e.target.files[0])} type='file' id={slot.key} accept='image/*' hidden />
                   </label>
                   {!slot.file && slot.existing && (
                     <button
@@ -388,22 +418,21 @@ const Add = ({ token }) => {
           </div>
         </div>
         <div className='mt-5'>
-          <p className='mb-2 text-sm font-medium text-gray-700'>Upload Video</p>
-          <div className='flex items-start gap-3'>
-            <label htmlFor='video' className='flex h-20 w-40 cursor-pointer items-center justify-center rounded-lg border border-dashed text-xs text-gray-500'>
-              {video ? video.name : existingVideo ? 'Replace Video' : 'Upload Video'}
-              <input onChange={(e) => setVideo(e.target.files[0])} type='file' id='video' accept='video/*' hidden />
-            </label>
-            {(video || existingVideo) && (
-              <div className='text-xs text-gray-500'>
-                <p>{video ? video.name : 'Existing video attached'}</p>
-                {existingVideo && !video && (
-                  <button type='button' onClick={() => setExistingVideo('')} className='mt-1 text-red-500'>
-                    Remove Video
+          <p className='mb-2 text-sm font-medium text-gray-700'>Upload Videos</p>
+          <div className='flex flex-wrap gap-3'>
+            {videoSlots.map((slot, index) => (
+              <div key={slot.key} className='flex flex-col gap-1'>
+                <label htmlFor={slot.key} className='flex h-20 w-40 cursor-pointer items-center justify-center rounded-lg border border-dashed px-3 text-center text-xs text-gray-500'>
+                  {slot.file ? slot.file.name : slot.existing ? `Replace Video ${index + 1}` : `Upload Video ${index + 1}`}
+                  <input onChange={(e) => updateVideoFile(index, e.target.files[0])} type='file' id={slot.key} accept='video/*' hidden />
+                </label>
+                {!slot.file && slot.existing && (
+                  <button type='button' onClick={() => removeExistingVideo(index)} className='text-xs text-red-500'>
+                    Remove
                   </button>
                 )}
               </div>
-            )}
+            ))}
           </div>
         </div>
       </section>

@@ -4,21 +4,13 @@ import upload from '../middleware/multer.js';
 import adminAuth from '../middleware/adminAuth.js';
 
 const productRouter = express.Router();
+const mediaFields = [
+    ...Array.from({ length: 10 }, (_, index) => ({ name: `image${index + 1}`, maxCount: 1 })),
+    ...Array.from({ length: 2 }, (_, index) => ({ name: `video${index + 1}`, maxCount: 1 }))
+]
 
-productRouter.post('/add',adminAuth,upload.fields([
-    {name:'image1', maxCount:1},
-    {name:'image2', maxCount:1},
-    {name:'image3', maxCount:1},
-    {name:'image4', maxCount:1},
-    {name:'video', maxCount:1}
-]),addProduct);
-productRouter.post('/update',adminAuth,upload.fields([
-    {name:'image1', maxCount:1},
-    {name:'image2', maxCount:1},
-    {name:'image3', maxCount:1},
-    {name:'image4', maxCount:1},
-    {name:'video', maxCount:1}
-]),updateProduct);
+productRouter.post('/add',adminAuth,upload.fields(mediaFields),addProduct);
+productRouter.post('/update',adminAuth,upload.fields(mediaFields),updateProduct);
 productRouter.post('/remove',adminAuth,removeProduct);
 productRouter.post('/single',singleProduct);
 productRouter.get('/list',listProducts)

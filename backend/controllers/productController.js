@@ -1,6 +1,9 @@
 import { v2 as cloudinary } from "cloudinary"
 import productModel from "../models/productModel.js"
 
+const imageFieldNames = Array.from({ length: 10 }, (_, index) => `image${index + 1}`)
+const videoFieldNames = Array.from({ length: 2 }, (_, index) => `video${index + 1}`)
+
 const parseJsonField = (value, fallback) => {
     if (value === undefined || value === null || value === '') {
         return fallback
@@ -14,7 +17,8 @@ const parseJsonField = (value, fallback) => {
 }
 
 const uploadFiles = async (files = {}) => {
-    const uploadedImages = [files.image1?.[0], files.image2?.[0], files.image3?.[0], files.image4?.[0]]
+    const uploadedImages = imageFieldNames
+        .map((fieldName) => files[fieldName]?.[0])
         .filter(Boolean)
 
     const imagesUrl = await Promise.all(
@@ -24,13 +28,18 @@ const uploadFiles = async (files = {}) => {
         })
     )
 
-    let videoUrl = ''
-    if (files.video?.[0]) {
-        const result = await cloudinary.uploader.upload(files.video[0].path, { resource_type: 'video' })
-        videoUrl = result.secure_url
-    }
+    const uploadedVideos = videoFieldNames
+        .map((fieldName) => files[fieldName]?.[0])
+        .filter(Boolean)
 
-    return { imagesUrl, videoUrl }
+    const videosUrl = await Promise.all(
+        uploadedVideos.map(async(item)=>{
+            const result = await cloudinary.uploader.upload(item.path, { resource_type: 'video' })
+            return result.secure_url
+        })
+    )
+
+    return { imagesUrl, videosUrl }
 }
 
 const buildProductPayload = (body, media) => ({
@@ -44,7 +53,8 @@ const buildProductPayload = (body, media) => ({
     bestseller: body.bestseller === "true" ? true : false,
     sizes: parseJsonField(body.sizes, []),
     image: media.images,
-    video: media.video,
+    video: media.videos[0] || '',
+    videos: media.videos,
     sku: body.sku || '',
     stockQuantity: Number(body.stockQuantity || 0),
     allowBackorder: body.allowBackorder === "true" ? true : false,
@@ -59,7 +69,7 @@ const buildProductPayload = (body, media) => ({
 const addProduct = async(req,res) => {
     try{
         const { name,description,price,category,subCategory,sizes,bestseller } = req.body
-        const { imagesUrl, videoUrl } = await uploadFiles(req.files)
+        const { imagesUrl, videosUrl } = await uploadFiles(req.files)
 
         if (imagesUrl.length === 0) {
             return res.json({ success: false, message: 'At least one image is required' })
@@ -68,7 +78,7 @@ const addProduct = async(req,res) => {
         const productData = {
             ...buildProductPayload(
                 { name, description, price, category, subCategory, sizes, bestseller },
-                { images: imagesUrl, video: videoUrl }
+                { images: imagesUrl, videos: videosUrl }
             ),
             date: Date.now()
         }
@@ -87,16 +97,21 @@ const addProduct = async(req,res) => {
 
 const updateProduct = async (req, res) => {
     try {
-        const { id, existingImages = '[]', existingVideo = '' } = req.body
+        const { id } = req.body
         const product = await productModel.findById(id)
 
         if (!product) {
             return res.json({ success: false, message: 'Product not found' })
         }
 
-        const { imagesUrl, videoUrl } = await uploadFiles(req.files)
-        const preservedImages = JSON.parse(existingImages)
+        const { imagesUrl, videosUrl } = await uploadFiles(req.files)
+        const preservedImages = parseJsonField(req.body.existingImages, [])
+        const preservedVideos = parseJsonField(
+            req.body.existingVideos,
+            product.videos?.length ? product.videos : (product.video ? [product.video] : [])
+        )
         const nextImages = [...preservedImages, ...imagesUrl]
+        const nextVideos = [...preservedVideos, ...videosUrl]
 
         if (nextImages.length === 0) {
             return res.json({ success: false, message: 'At least one image is required' })
@@ -104,7 +119,7 @@ const updateProduct = async (req, res) => {
 
         const updateData = buildProductPayload(req.body, {
             images: nextImages,
-            video: videoUrl || existingVideo
+            videos: nextVideos
         })
 
         await productModel.findByIdAndUpdate(id, updateData)

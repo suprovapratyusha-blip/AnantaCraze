@@ -8,6 +8,7 @@ const productSchema = new mongoose.Schema({
     costPerItem: {type: Number, default: 0},
     image: {type: Array, required: true},
     video: {type: String, default: ''},
+    videos: {type: Array, default: []},
     category: {type: String, required: true},
     subCategory: {type: String, required: true},
     sizes: {type: Array, required: true},

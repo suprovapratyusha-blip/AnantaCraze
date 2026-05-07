@@ -27,6 +27,14 @@ const Product = () => {
   useEffect(()=>{
     fetchProductData();
   },[productId,products])
+
+  const productVideos = productData
+    ? (Array.isArray(productData.videos) && productData.videos.length > 0
+        ? productData.videos
+        : productData.video
+          ? [productData.video]
+          : [])
+    : []
   
 
   return productData ? (
@@ -46,11 +54,13 @@ const Product = () => {
           </div>
           <div className='w-full sm:w-[80%]'>
             <img className='w-full h-auto'src={image} alt="" />
-            {productData.video && (
-              <div className='mt-4'>
-                <video className='w-full rounded border' controls src={productData.video}>
-                  Your browser does not support the video tag.
-                </video>
+            {productVideos.length > 0 && (
+              <div className='mt-4 flex flex-col gap-4'>
+                {productVideos.map((videoUrl, index) => (
+                  <video key={videoUrl || index} className='w-full rounded border' controls src={videoUrl}>
+                    Your browser does not support the video tag.
+                  </video>
+                ))}
               </div>
             )}
           </div>
@@ -70,7 +80,17 @@ const Product = () => {
 
           </div>
           <p className='mt-5 text-3xl font-medium '>{currency}{productData.price}</p>
+          {productData.compareAtPrice > 0 && (
+            <p className='mt-2 text-lg text-gray-400 line-through'>{currency}{productData.compareAtPrice}</p>
+          )}
           <p className='mt-5 text-gray-500 md:w-4/5'>{productData.description}</p>
+          <div className='mt-4 text-sm text-gray-500 flex flex-col gap-1'>
+            {productData.stockQuantity >= 0 && <p>Available Stock: {productData.stockQuantity}</p>}
+            {productData.minimumOrderQuantity > 1 && <p>Minimum Order Quantity: {productData.minimumOrderQuantity}</p>}
+            {productData.processingTimeDays > 0 && <p>Processing Time: {productData.processingTimeDays} day(s)</p>}
+            {productData.customizationAvailable && <p>Customization available for this product.</p>}
+            {productData.customizationNotes && <p>{productData.customizationNotes}</p>}
+          </div>
           <div className='flex flex-col gap-4 my-8'>
               <p>Select Size</p>
               <div className='flex gap-2'>
