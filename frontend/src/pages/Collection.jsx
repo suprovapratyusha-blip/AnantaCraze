@@ -1,8 +1,9 @@
-import React,  { useContext, useEffect, useState } from 'react'
+import React,  { useContext, useEffect, useMemo, useState } from 'react'
 import { ShopContext } from '../context/ShopContext';
 import { assets } from '../assets/assets';
 import Productitems from '../components/Productitems'
 import Title from '../components/Title'; // adjust path if needed
+import { categoryOptions } from '../data/productOptions';
 
 
 const Collection = () => {
@@ -13,6 +14,12 @@ const Collection = () => {
   const[category,setCategory] = useState([]);
   const[subCategory,setSubCategory] = useState([]);
   const[sortType,setSortType]=useState('relevant')
+
+  const availableCategories = useMemo(() => Object.keys(categoryOptions), [])
+  const availableSubCategories = useMemo(() => {
+    const selectedCategories = category.length > 0 ? category : availableCategories
+    return [...new Set(selectedCategories.flatMap((item) => categoryOptions[item] || []))]
+  }, [availableCategories, category])
 
   const toggleCategory = (e) => {
     if(category.includes(e.target.value)){
@@ -71,6 +78,10 @@ const Collection = () => {
 
   },[category,subCategory,search,showSearch,products])
 
+  useEffect(() => {
+    setSubCategory((prev) => prev.filter((item) => availableSubCategories.includes(item)))
+  }, [availableSubCategories])
+
   useEffect(()=>{
     sortProduct();
   },[sortType])
@@ -88,41 +99,38 @@ const Collection = () => {
         <div className={`border border-gray-300 pl-5 py-3 mt-6 ${showFilter?'':'hidden'} sm:block`}>
           <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
           <div className='flex flex-col gap-2 text-sm font-light text-gray-700'>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Dress'} onChange={toggleCategory}/>Dress
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Jewellery'} onChange={toggleCategory}/>Jewellery
-            </p>
+            {availableCategories.map((item) => (
+              <label className='flex gap-2' key={item}>
+                <input
+                  className='w-3'
+                  type="checkbox"
+                  value={item}
+                  checked={category.includes(item)}
+                  onChange={toggleCategory}
+                />
+                {item}
+              </label>
+            ))}
 
           </div>
 
         </div>
         {/*SubCategory*/}
         <div className={`border border-gray-300 pl-5 py-3 my-5 ${showFilter?'':'hidden'} sm:block`}>
-          <p className='mb-3 text-sm font-medium'>TYPE</p>
+          <p className='mb-3 text-sm font-medium'>SUB CATEGORIES</p>
           <div className='flex flex-col gap-2 text-sm font-light text-gray-700'>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Gopal'} onChange={toggleSubCategory}/>Gopal
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Yugal Jodi'} onChange={toggleSubCategory}/>Yugal Jodi
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Lehenga Choli'} onChange={toggleSubCategory}/>Lehenga,Choli
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Mukut'} onChange={toggleSubCategory}/>Mukut
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Chandrika'} onChange={toggleSubCategory}/>Chandrika
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Mangtika'} onChange={toggleSubCategory}/>Mangtika
-            </p>
-            <p className='flex gap-2'>
-              <input className='w-3' type="checkbox" value={'Necklace'} onChange={toggleSubCategory}/>Necklace
-            </p>
+            {availableSubCategories.map((item) => (
+              <label className='flex gap-2' key={item}>
+                <input
+                  className='w-3'
+                  type="checkbox"
+                  value={item}
+                  checked={subCategory.includes(item)}
+                  onChange={toggleSubCategory}
+                />
+                {item}
+              </label>
+            ))}
 
           </div>
 
