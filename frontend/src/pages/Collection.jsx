@@ -15,11 +15,27 @@ const Collection = () => {
   const[subCategory,setSubCategory] = useState([]);
   const[sortType,setSortType]=useState('relevant')
 
-  const availableCategories = useMemo(() => Object.keys(categoryOptions), [])
+  const availableCategories = useMemo(() => {
+    const staticCategories = Object.keys(categoryOptions)
+    const dynamicCategories = [...new Set(
+      products
+        .map((item) => item.category)
+        .filter(Boolean)
+    )]
+
+    return [...new Set([...staticCategories, ...dynamicCategories])]
+  }, [products])
+
   const availableSubCategories = useMemo(() => {
     const selectedCategories = category.length > 0 ? category : availableCategories
-    return [...new Set(selectedCategories.flatMap((item) => categoryOptions[item] || []))]
-  }, [availableCategories, category])
+    const staticSubCategories = selectedCategories.flatMap((item) => categoryOptions[item] || [])
+    const dynamicSubCategories = products
+      .filter((item) => selectedCategories.includes(item.category))
+      .map((item) => item.subCategory)
+      .filter(Boolean)
+
+    return [...new Set([...staticSubCategories, ...dynamicSubCategories])]
+  }, [availableCategories, category, products])
 
   const toggleCategory = (e) => {
     if(category.includes(e.target.value)){
