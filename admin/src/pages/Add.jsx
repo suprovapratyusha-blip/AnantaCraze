@@ -9,6 +9,9 @@ import { categoryOptions, defaultCategory, defaultSubCategory } from '../data/pr
 const variantNameOptions = ['Color', 'Size', 'Material', 'Style']
 const maxImageSlots = 10
 const maxVideoSlots = 2
+const sizeOptions = ['Free Size', '0-1', '2-3', '4-5', '6-7', '8-9', '10-11']
+const customCategoryOption = '__add_new_category__'
+const customSubCategoryOption = '__add_new_sub_category__'
 
 const createEmptySlots = (count) => Array.from({ length: count }, () => false)
 
@@ -40,7 +43,8 @@ const normalizeVariantGroups = (variants = []) => {
   if (variants.every((variant) => variant?.name && Array.isArray(variant.values))) {
     return variants.map((variant) => ({
       name: variant.name,
-      values: variant.values.filter(Boolean)
+      values: variant.values.filter(Boolean),
+      quantity: variant.quantity !== undefined && variant.quantity !== null ? String(variant.quantity) : ''
     }))
   }
 
@@ -57,7 +61,7 @@ const normalizeVariantGroups = (variants = []) => {
     groupedVariants.set(groupName, groupValues)
   })
 
-  return Array.from(groupedVariants.entries()).map(([name, values]) => ({ name, values }))
+  return Array.from(groupedVariants.entries()).map(([name, values]) => ({ name, values, quantity: '' }))
 }
 
 const parsePositiveNumber = (value) => {
@@ -77,6 +81,10 @@ const Add = ({ token }) => {
   const [formData, setFormData] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [variantDrafts, setVariantDrafts] = useState([])
+  const [isCustomCategory, setIsCustomCategory] = useState(false)
+  const [customCategory, setCustomCategory] = useState('')
+  const [isCustomSubCategory, setIsCustomSubCategory] = useState(false)
+  const [customSubCategory, setCustomSubCategory] = useState('')
 
   const imageSlots = useMemo(() => (
     Array.from({ length: maxImageSlots }, (_, index) => ({
@@ -95,6 +103,8 @@ const Add = ({ token }) => {
   ), [existingVideos, videoFiles])
 
   const subCategoryOptions = categoryOptions[formData.category] || []
+  const categorySelectValue = isCustomCategory ? customCategoryOption : formData.category
+  const subCategorySelectValue = isCustomSubCategory ? customSubCategoryOption : formData.subCategory
 
   const discountPercent = useMemo(() => {
     const sellingPrice = parsePositiveNumber(formData.price)
@@ -112,11 +122,60 @@ const Add = ({ token }) => {
   }
 
   const updateCategory = (category) => {
+    if (category === customCategoryOption) {
+      setIsCustomCategory(true)
+      setCustomCategory('')
+      setIsCustomSubCategory(true)
+      setCustomSubCategory('')
+      setFormData((prev) => ({
+        ...prev,
+        category: '',
+        subCategory: ''
+      }))
+      return
+    }
+
     const firstSubCategory = categoryOptions[category]?.[0] || ''
+    setIsCustomCategory(false)
+    setCustomCategory('')
+    setIsCustomSubCategory(false)
+    setCustomSubCategory('')
     setFormData((prev) => ({
       ...prev,
       category,
       subCategory: firstSubCategory
+    }))
+  }
+
+  const updateCustomCategory = (value) => {
+    setCustomCategory(value)
+    setFormData((prev) => ({
+      ...prev,
+      category: value
+    }))
+  }
+
+  const updateSubCategory = (subCategory) => {
+    if (subCategory === customSubCategoryOption) {
+      setIsCustomSubCategory(true)
+      setCustomSubCategory('')
+      setFormData((prev) => ({
+        ...prev,
+        subCategory: ''
+      }))
+      return
+    }
+
+    setIsCustomSubCategory(false)
+    setCustomSubCategory('')
+    updateForm('subCategory', subCategory)
+  }
+
+  const updateCustomSubCategory = (value) => {
+    setCustomSubCategory(value)
+    setFormData((prev) => ({
+      ...prev,
+      subCategory: value
     }))
   }
 
@@ -168,7 +227,7 @@ const Add = ({ token }) => {
   const addVariantOption = () => {
     setFormData((prev) => ({
       ...prev,
-      productVariants: [...prev.productVariants, { name: 'Color', values: [] }]
+      productVariants: [...prev.productVariants, { name: 'Color', values: [], quantity: '' }]
     }))
     setVariantDrafts((prev) => [...prev, ''])
   }
@@ -255,6 +314,10 @@ const Add = ({ token }) => {
     setExistingImages([])
     setExistingVideos([])
     setVariantDrafts([])
+    setIsCustomCategory(false)
+    setCustomCategory('')
+    setIsCustomSubCategory(false)
+    setCustomSubCategory('')
   }
 
   const loadProduct = async () => {
@@ -277,6 +340,8 @@ const Add = ({ token }) => {
         : product.video
           ? [product.video]
           : []
+      const hasPresetCategory = Boolean(categoryOptions[product.category])
+      const hasPresetSubCategory = Boolean((categoryOptions[product.category] || []).includes(product.subCategory))
 
       setFormData({
         name: product.name,
@@ -297,6 +362,10 @@ const Add = ({ token }) => {
         customizationNotes: product.customizationNotes || '',
         productVariants: normalizedVariants
       })
+      setIsCustomCategory(!hasPresetCategory)
+      setCustomCategory(!hasPresetCategory ? product.category : '')
+      setIsCustomSubCategory(!hasPresetSubCategory)
+      setCustomSubCategory(!hasPresetSubCategory ? product.subCategory : '')
       setVariantDrafts(normalizedVariants.map(() => ''))
       setExistingImages(product.image || [])
       setExistingVideos(normalizedVideos)
@@ -345,7 +414,11 @@ const Add = ({ token }) => {
       payload.append('customizationNotes', formData.customizationNotes)
       payload.append(
         'productVariants',
-        JSON.stringify(formData.productVariants.filter((variant) => variant.name && variant.values.length > 0))
+        JSON.stringify(
+          formData.productVariants.filter(
+            (variant) => variant.name && (variant.values.length > 0 || variant.quantity)
+          )
+        )
       )
 
       imageFiles.forEach((file, index) => {
@@ -451,19 +524,41 @@ const Add = ({ token }) => {
         <div className='mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap'>
           <div>
             <p className='mb-2 text-sm font-medium text-gray-700'>Category</p>
-            <select onChange={(e) => updateCategory(e.target.value)} value={formData.category} className='min-w-64 rounded-lg border px-3 py-2'>
+            <select onChange={(e) => updateCategory(e.target.value)} value={categorySelectValue} className='min-w-64 rounded-lg border px-3 py-2'>
               {Object.keys(categoryOptions).map((category) => (
                 <option key={category} value={category}>{category}</option>
               ))}
+              <option value={customCategoryOption}>+ Add new category</option>
             </select>
+            {isCustomCategory && (
+              <input
+                type='text'
+                value={customCategory}
+                onChange={(e) => updateCustomCategory(e.target.value)}
+                className='mt-2 w-full min-w-64 rounded-lg border px-3 py-2'
+                placeholder='Type new category'
+                required
+              />
+            )}
           </div>
           <div>
             <p className='mb-2 text-sm font-medium text-gray-700'>Sub category</p>
-            <select onChange={(e) => updateForm('subCategory', e.target.value)} value={formData.subCategory} className='min-w-64 rounded-lg border px-3 py-2'>
+            <select onChange={(e) => updateSubCategory(e.target.value)} value={subCategorySelectValue} className='min-w-64 rounded-lg border px-3 py-2'>
               {subCategoryOptions.map((subCategory) => (
                 <option key={subCategory} value={subCategory}>{subCategory}</option>
               ))}
+              <option value={customSubCategoryOption}>+ Add new sub category</option>
             </select>
+            {isCustomSubCategory && (
+              <input
+                type='text'
+                value={customSubCategory}
+                onChange={(e) => updateCustomSubCategory(e.target.value)}
+                className='mt-2 w-full min-w-64 rounded-lg border px-3 py-2'
+                placeholder='Type new sub category'
+                required
+              />
+            )}
           </div>
           <div className='flex items-end gap-2 pb-1'>
             <input onChange={() => updateForm('bestseller', !formData.bestseller)} checked={formData.bestseller} type='checkbox' id='bestseller' />
@@ -550,7 +645,7 @@ const Add = ({ token }) => {
         <div>
           <p className='mb-2 text-sm font-medium text-gray-700'>Product Sizes</p>
           <div className='flex flex-wrap gap-3'>
-            {['0-1', '2-3', '4-5', '6-7', '8-9', '10-11'].map((size) => (
+            {sizeOptions.map((size) => (
               <div key={size} onClick={() => toggleSize(size)}>
                 <p className={`${formData.sizes.includes(size) ? 'bg-yellow-200' : 'bg-slate-200'} cursor-pointer rounded px-3 py-1 text-sm`}>{size}</p>
               </div>
@@ -561,7 +656,7 @@ const Add = ({ token }) => {
         <div className='mt-5 flex flex-col gap-4'>
           {formData.productVariants.map((variant, index) => (
             <div key={index} className='rounded-xl border border-gray-200 p-4'>
-              <div className='grid gap-3 sm:grid-cols-[1fr_2fr_auto]'>
+              <div className='grid gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]'>
                 <div>
                   <p className='mb-2 text-sm font-medium text-gray-700'>Option name</p>
                   <select
@@ -593,6 +688,17 @@ const Add = ({ token }) => {
                       Add
                     </button>
                   </div>
+                </div>
+                <div>
+                  <p className='mb-2 text-sm font-medium text-gray-700'>Quantity</p>
+                  <input
+                    value={variant.quantity || ''}
+                    onChange={(e) => updateVariantOption(index, 'quantity', e.target.value)}
+                    className='w-full rounded-lg border px-3 py-2'
+                    type='number'
+                    min='0'
+                    placeholder='Enter quantity'
+                  />
                 </div>
                 <div className='flex items-end'>
                   <button type='button' onClick={() => removeVariantOption(index)} className='rounded px-3 py-2 text-sm text-red-500'>
